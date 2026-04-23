@@ -32,12 +32,10 @@ app.get('/', (req, res) => {
   res.json({ message: 'Serenity Yoga Studio API is running 🧘' });
 });
 
-// Export for Vercel
+// Export for potential serverless use
 module.exports = app;
 
-// Start server only if not running as a serverless function
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    console.log(`✅ Server running on http://localhost:${PORT}`);
-  });
-}
+// Start server — Railway/Render need a persistent listener
+app.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+});
