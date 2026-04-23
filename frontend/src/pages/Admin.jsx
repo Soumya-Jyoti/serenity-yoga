@@ -1,6 +1,7 @@
 /**
- * Admin Panel — protected admin-only page.
- * Displays contact form submissions with search, stats, and table/card view.
+ * Admin Panel — A premium management interface for studio administrators.
+ * Design Principle: Geometric precision, high-contrast borders, 
+ * and utilitarian elegance. Zero shadows, zero gradients.
  */
 
 import { useState, useEffect, useMemo } from 'react';
@@ -14,6 +15,7 @@ const Admin = () => {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     fetchSubmissions();
@@ -21,17 +23,18 @@ const Admin = () => {
 
   const fetchSubmissions = async () => {
     try {
-      setLoading(true);
+      setIsRefreshing(true);
+      if (!submissions.length) setLoading(true);
       const res = await API.get('/api/contact');
       setSubmissions(res.data.submissions || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load submissions.');
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
-  // Client-side filter by name or email
   const filtered = useMemo(() => {
     if (!search.trim()) return submissions;
     const q = search.toLowerCase();
@@ -42,195 +45,161 @@ const Admin = () => {
     );
   }, [submissions, search]);
 
-  // Stats
-  const totalSubmissions = submissions.length;
-  const todayCount = submissions.filter((s) => {
-    const d = new Date(s.created_at);
-    const today = new Date();
-    return d.toDateString() === today.toDateString();
-  }).length;
+  const stats = useMemo(() => {
+    const today = new Date().toDateString();
+    return [
+      { label: 'Total Inquiries', value: submissions.length, color: 'bg-ink' },
+      { label: 'Received Today', value: submissions.filter(s => new Date(s.created_at).toDateString() === today).length, color: 'bg-sage' },
+      { label: 'Pending Response', value: submissions.length, color: 'bg-clay' } // Future logic placeholder
+    ];
+  }, [submissions]);
 
-  // Format date
   const formatDate = (dateStr) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
     });
   };
 
   return (
-    <div className="min-h-screen bg-cream">
-      {/* Top bar */}
-      <div className="pt-28 pb-6 px-6">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-ink">
-              Admin Panel
+    <div className="min-h-screen bg-cream selection:bg-ink selection:text-white">
+      {/* ── Page Container ── */}
+      <div className="pt-32 pb-24 px-6 md:px-10 max-w-[1440px] mx-auto">
+        
+        {/* ── Minimal Header ── */}
+        <header className="mb-14 border-b border-stone-200 pb-12 flex flex-col md:flex-row md:items-end justify-between gap-8">
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <span className="bg-ink text-white text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-sm">System</span>
+              <div className="w-1.5 h-1.5 rounded-full bg-clay" />
+              <span className="text-stone-400 font-bold text-[10px] uppercase tracking-widest">Admin Control</span>
+            </div>
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tighter text-ink">
+              Studio Management.
             </h1>
-            <p className="text-stone-700 mt-1">Contact form submissions</p>
+            <p className="text-stone-500 font-medium max-w-lg">
+              Review and manage student inquiries from the Zen contact system.
+            </p>
           </div>
-          <button
-            onClick={logout}
-            className="bg-white border border-stone-200 text-ink rounded-xl px-5 py-2.5 text-sm font-medium hover:border-stone-300 transition-all hover:-translate-y-0.5"
-          >
-            Logout
-          </button>
+          
+          <div className="flex items-center gap-3">
+            <button
+              onClick={fetchSubmissions}
+              className={`p-4 border border-stone-200 bg-white rounded-xl transition-all hover:border-ink ${isRefreshing ? 'animate-spin' : ''}`}
+              title="Refresh Data"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+                <path d="M21 3v5h-5"/>
+              </svg>
+            </button>
+          </div>
+        </header>
+
+        {/* ── Operational Stats ── */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          {stats.map((s, i) => (
+            <div key={i} className="bg-white border border-stone-200 p-8 rounded-[32px] group transition-all hover:border-ink">
+              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-400 mb-6 group-hover:text-ink transition-colors">{s.label}</div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-5xl font-bold text-ink tabular-nums tracking-tighter">{s.value < 10 && '0'}{s.value}</span>
+                <div className={`w-2 h-2 rounded-full ${s.color}`} />
+              </div>
+            </div>
+          ))}
+        </section>
+
+        {/* ── Search & Filter Logic ── */}
+        <div className="mb-8 relative group">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Filter by student name or contact email..."
+            className="w-full bg-white border border-stone-200 rounded-3xl p-6 pl-14 text-lg font-medium text-ink placeholder:text-stone-300 focus:outline-none focus:border-ink transition-all"
+          />
+          <div className="absolute left-6 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-ink transition-colors">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+            </svg>
+          </div>
+          {search && (
+            <button 
+              onClick={() => setSearch('')}
+              className="absolute right-6 top-1/2 -translate-y-1/2 text-stone-400 hover:text-ink font-bold text-[10px] uppercase"
+            >
+              Clear
+            </button>
+          )}
         </div>
-      </div>
 
-      <div className="px-6 pb-24">
-        <div className="max-w-7xl mx-auto space-y-8">
-          {/* ── Stats row ── */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white rounded-3xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-stone-200/50">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-2xl bg-sage/10 flex items-center justify-center text-lg">📩</div>
-                <div className="text-xs font-medium uppercase tracking-wider text-stone-500">Total</div>
-              </div>
-              <div className="text-3xl font-bold text-ink">{totalSubmissions}</div>
-              <div className="text-sm text-stone-700 mt-1">Submissions received</div>
-            </div>
-            <div className="bg-white rounded-3xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-stone-200/50">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-2xl bg-clay/10 flex items-center justify-center text-lg">📆</div>
-                <div className="text-xs font-medium uppercase tracking-wider text-stone-500">Today</div>
-              </div>
-              <div className="text-3xl font-bold text-ink">{todayCount}</div>
-              <div className="text-sm text-stone-700 mt-1">New today</div>
-            </div>
-            <div className="bg-white rounded-3xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-stone-200/50">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-2xl bg-moss/10 flex items-center justify-center text-lg">👥</div>
-                <div className="text-xs font-medium uppercase tracking-wider text-stone-500">Users</div>
-              </div>
-              <div className="text-3xl font-bold text-ink">—</div>
-              <div className="text-sm text-stone-700 mt-1">Registered users</div>
-            </div>
-          </div>
+        {/* ── Data Surface ── */}
+        <div className="bg-white border border-stone-200 rounded-[32px] overflow-hidden flex flex-col">
 
-          {/* ── Search ── */}
-          <div className="bg-white rounded-3xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-stone-200/50">
-            <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-              <div className="relative flex-1 w-full">
-                <svg
-                  className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-500"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                </svg>
-                <input
-                  id="admin-search"
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by name or email..."
-                  className="w-full rounded-xl border border-stone-200 bg-white pl-12 pr-4 py-3 text-ink placeholder:text-stone-500 focus:border-ink focus:outline-none focus:ring-2 focus:ring-ink/10 transition-all"
-                />
-              </div>
-              <button
-                onClick={fetchSubmissions}
-                className="bg-ink text-white rounded-xl px-5 py-3 text-sm font-medium hover:bg-stone-900 transition-all hover:-translate-y-0.5"
-              >
-                Refresh
-              </button>
-            </div>
-          </div>
-
-          {/* ── Content ── */}
           {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="flex flex-col items-center gap-4">
-                <div className="spinner spinner-dark w-8 h-8" />
-                <p className="text-stone-500 text-sm">Loading submissions...</p>
-              </div>
-            </div>
-          ) : error ? (
-            <div className="bg-white rounded-3xl p-8 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-stone-200/50 text-center">
-              <div className="text-4xl mb-4">⚠️</div>
-              <p className="text-stone-700">{error}</p>
-              <button
-                onClick={fetchSubmissions}
-                className="mt-4 bg-ink text-white rounded-xl px-5 py-2.5 text-sm font-medium hover:bg-stone-900 transition-all"
-              >
-                Try Again
-              </button>
+            <div className="flex-1 flex flex-col items-center justify-center gap-4 text-stone-400 min-h-[400px]">
+              <div className="w-10 h-10 border-4 border-stone-100 border-t-ink rounded-full animate-spin" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Hydrating Management Interface...</span>
             </div>
           ) : filtered.length === 0 ? (
-            <div className="bg-white rounded-3xl p-12 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-stone-200/50 text-center">
-              <div className="text-6xl mb-6">🧘‍♀️</div>
-              <h3 className="text-xl font-semibold text-ink mb-2">No submissions yet</h3>
-              <p className="text-stone-700 max-w-sm mx-auto">
-                {search
-                  ? 'No results match your search. Try a different term.'
-                  : 'When visitors send a message through the contact form, it will show up here.'}
+            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center group min-h-[400px]">
+              <img 
+                src="/admin-illustration.png" 
+                alt="Zen Workspace" 
+                className="w-64 h-64 mb-8 grayscale opacity-20 group-hover:opacity-40 transition-opacity duration-1000 pointer-events-none"
+              />
+              <h3 className="text-2xl font-bold text-ink mb-2">Workspace clear.</h3>
+              <p className="text-stone-500 max-w-xs font-medium">
+                {search ? "No matches found for this query." : "Every student is in harmony. No pending inquiries."}
               </p>
             </div>
           ) : (
             <>
-              {/* Desktop table */}
-              <div className="hidden md:block bg-white rounded-3xl shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-stone-200/50 overflow-hidden">
-                <table className="w-full">
+              {/* Desktop View: Table */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[1000px]">
                   <thead>
-                    <tr className="border-b border-stone-200/50">
-                      <th className="text-left px-6 py-4 text-xs font-medium uppercase tracking-wider text-stone-500">Name</th>
-                      <th className="text-left px-6 py-4 text-xs font-medium uppercase tracking-wider text-stone-500">Email</th>
-                      <th className="text-left px-6 py-4 text-xs font-medium uppercase tracking-wider text-stone-500">Message</th>
-                      <th className="text-left px-6 py-4 text-xs font-medium uppercase tracking-wider text-stone-500">Received</th>
+                    <tr className="border-b border-stone-200 bg-stone-50/50">
+                      <th className="px-6 py-6 text-[10px] font-black uppercase tracking-widest text-stone-400 w-16">ID</th>
+                      <th className="px-6 py-6 text-[10px] font-black uppercase tracking-widest text-stone-400">Name</th>
+                      <th className="px-6 py-6 text-[10px] font-black uppercase tracking-widest text-stone-400">Email</th>
+                      <th className="px-6 py-6 text-[10px] font-black uppercase tracking-widest text-stone-400">Message</th>
+                      <th className="px-6 py-6 text-[10px] font-black uppercase tracking-widest text-stone-400 text-right">Date & Time</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-stone-100">
                     {filtered.map((s) => (
-                      <tr
-                        key={s.id}
-                        className="border-b border-stone-100 last:border-0 hover:bg-stone-50 transition-colors"
-                      >
-                        <td className="px-6 py-4">
+                      <tr key={s.id} className="group hover:bg-stone-50/50 transition-colors">
+                        <td className="px-6 py-8 align-top">
+                          <span className="text-xs font-bold text-stone-300 tabular-nums">#{s.id}</span>
+                        </td>
+                        <td className="px-6 py-8 align-top whitespace-nowrap">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-sage/10 flex items-center justify-center text-xs font-semibold text-sage">
+                            <div className="w-8 h-8 bg-ink/5 border border-stone-200 text-ink rounded-lg flex items-center justify-center font-bold text-[10px]">
                               {s.name.charAt(0).toUpperCase()}
                             </div>
-                            <span className="text-sm font-medium text-ink">{s.name}</span>
+                            <span className="font-bold text-ink text-sm">{s.name}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-sm text-stone-700">{s.email}</td>
-                        <td className="px-6 py-4 text-sm text-stone-700 max-w-xs">
-                          {expandedId === s.id ? (
-                            <span>
-                              {s.message}{' '}
-                              <button
-                                onClick={() => setExpandedId(null)}
-                                className="text-sage hover:text-moss text-xs font-medium"
-                              >
-                                Show less
-                              </button>
-                            </span>
-                          ) : (
-                            <span>
-                              {s.message.length > 80 ? (
-                                <>
-                                  {s.message.slice(0, 80)}...{' '}
-                                  <button
-                                    onClick={() => setExpandedId(s.id)}
-                                    className="text-sage hover:text-moss text-xs font-medium"
-                                  >
-                                    View more
-                                  </button>
-                                </>
-                              ) : (
-                                s.message
-                              )}
-                            </span>
+                        <td className="px-6 py-8 align-top whitespace-nowrap text-sm font-medium text-stone-600 italic">
+                          {s.email}
+                        </td>
+                        <td className="px-6 py-8 align-top max-w-sm">
+                          <div className={`text-sm text-stone-700 leading-relaxed font-medium ${expandedId === s.id ? '' : 'line-clamp-2'}`}>
+                            {s.message}
+                          </div>
+                          {s.message.length > 100 && (
+                            <button 
+                              onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}
+                              className="mt-3 text-[10px] font-black uppercase tracking-widest text-sage border-b border-sage/20 hover:border-sage transition-all block"
+                            >
+                              {expandedId === s.id ? 'Collapse' : 'Read Full Entry'}
+                            </button>
                           )}
                         </td>
-                        <td className="px-6 py-4 text-sm text-stone-500 whitespace-nowrap">
-                          {formatDate(s.created_at)}
+                        <td className="px-6 py-8 text-right align-top">
+                          <div className="text-xs font-bold text-ink tabular-nums">{formatDate(s.created_at).split(',')[0]}</div>
+                          <div className="text-[10px] text-stone-400 font-bold uppercase tracking-tighter">{formatDate(s.created_at).split(',')[1]}</div>
                         </td>
                       </tr>
                     ))}
@@ -238,30 +207,60 @@ const Admin = () => {
                 </table>
               </div>
 
-              {/* Mobile cards */}
-              <div className="md:hidden space-y-4">
+              {/* Mobile View: Card Stack */}
+              <div className="md:hidden divide-y divide-stone-100">
                 {filtered.map((s) => (
-                  <div
-                    key={s.id}
-                    className="bg-white rounded-3xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-stone-200/50"
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 rounded-full bg-sage/10 flex items-center justify-center text-sm font-semibold text-sage">
-                        {s.name.charAt(0).toUpperCase()}
+                  <div key={s.id} className="p-6 space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-ink text-white rounded-xl flex items-center justify-center font-bold text-xs uppercase">
+                          {s.name.charAt(0)}
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">#{s.id}</div>
+                          <div className="text-sm font-bold text-ink">{s.name}</div>
+                          
+                        </div>
                       </div>
-                      <div>
-                        <div className="text-sm font-semibold text-ink">{s.name}</div>
-                        <div className="text-xs text-stone-500">{s.email}</div>
+                      <div className="text-right">
+                        <div className="text-[10px] font-bold text-ink uppercase">{formatDate(s.created_at).split(',')[0]}</div>
+                        <div className="text-[10px] text-stone-400 font-medium">{formatDate(s.created_at).split(',')[1]}</div>
                       </div>
                     </div>
-                    <p className="text-sm text-stone-700 mb-3 leading-relaxed">{s.message}</p>
-                    <div className="text-xs text-stone-500">{formatDate(s.created_at)}</div>
+                    
+                    <div className="space-y-1">
+                      <div className="text-xs font-bold text-sage italic">{s.email}</div>
+                      <p className={`text-sm text-stone-700 leading-relaxed font-medium ${expandedId === s.id ? '' : 'line-clamp-3'}`}>
+                        {s.message}
+                      </p>
+                      {s.message.length > 120 && (
+                        <button 
+                          onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}
+                          className="text-[10px] font-black uppercase tracking-widest text-ink/40"
+                        >
+                          {expandedId === s.id ? 'Show Less' : 'Read More'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
             </>
+
+
           )}
         </div>
+
+        {/* ── Footer / Exit Logic ── */}
+        <footer className="mt-20 pt-12 border-t border-stone-200 flex flex-col items-center gap-4">
+          <p className="text-stone-400 text-[10px] font-bold uppercase tracking-widest">End of Management Records</p>
+          <button
+            onClick={logout}
+            className="text-stone-400 hover:text-ink font-black text-[10px] bg-stone-100 px-8 py-4 rounded-xl hover:bg-stone-200 uppercase tracking-[0.3em] transition-colors py-2"
+          >
+            Sign Out & Terminate Session
+          </button>
+        </footer>
       </div>
     </div>
   );
