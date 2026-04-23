@@ -174,7 +174,7 @@ UPDATE users SET role = 'admin' WHERE email = 'your-email@example.com';
 | `DB_USER` | MySQL username |
 | `DB_PASSWORD` | MySQL password |
 | `DB_NAME` | Database name |
-| `JWT_SECRET` | Secret key for JWT signing |
+| `TOKEN_SECRET` | Secret key for JWT signing |
 
 ### Frontend (`frontend/.env`)
 
