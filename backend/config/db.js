@@ -5,17 +5,25 @@
 const mysql = require('mysql2/promise');
 require('dotenv').config();
 
+const host = process.env.DB_HOST || process.env.MYSQLHOST || 'localhost';
+const port = parseInt(process.env.DB_PORT || process.env.MYSQLPORT || 3306, 10);
+const user = process.env.DB_USER || process.env.MYSQLUSER || 'root';
+const password = process.env.DB_PASSWORD || process.env.MYSQLPASSWORD || '';
+const database = process.env.DB_NAME || process.env.MYSQLDATABASE || 'serenity_yoga';
+
 const pool = mysql.createPool({
-  // Railway provides MYSQLHOST/PORT/USER/PASSWORD/DATABASE by default
-  host: process.env.MYSQLHOST || process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.MYSQLPORT || process.env.DB_PORT || 3306, 10),
-  user: process.env.MYSQLUSER || process.env.DB_USER || 'root',
-  password: process.env.MYSQLPASSWORD || process.env.DB_PASSWORD || '',
-  database: process.env.MYSQLDATABASE || process.env.DB_NAME || 'serenity_yoga',
-  ssl: (process.env.MYSQLHOST || process.env.DB_HOST)?.includes('.rlwy.net') ? { rejectUnauthorized: false } : null,
+  host,
+  port,
+  user,
+  password,
+  database,
+  ssl: host.includes('.rlwy.net') ? { rejectUnauthorized: false } : null,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
 });
+
+// Debug log (safe — doesn't print password)
+console.log(`🔌 DB config: host=${host}, port=${port}, user=${user}, db=${database}`);
 
 module.exports = pool;
