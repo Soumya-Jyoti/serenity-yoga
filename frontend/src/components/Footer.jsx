@@ -9,7 +9,7 @@ const Footer = () => {
 
   return (
     <footer id="footer" className="bg-stone-900 text-white">
-      <div className="max-w-7xl mx-auto px-6 py-16 md:py-20">
+      <div className="max-w-7xl mx-auto px-6 pt-16 md:pt-20">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-10 md:gap-8">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
@@ -127,7 +127,15 @@ const Footer = () => {
             </a>
           </div>
         </div>
+
+       
       </div>
+       {/* Huge Brand Text */}
+        <div className="mt-6 md:mt-10 select-none pointer-events-none overflow-hidden">
+          <h2 className="text-[20vw] font-bold text-white/5 leading-none text-center uppercase tracking-tighter">
+            Serenity
+          </h2>
+        </div>
     </footer>
   );
 };

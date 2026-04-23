@@ -13,7 +13,7 @@ const TrustBar = () => {
           {partnerLogos.map((name) => (
             <span
               key={name}
-              className="text-stone-300 font-black text-xl tracking-tighter select-none opacity-50 hover:opacity-100 transition-opacity"
+              className="text-stone-700 font-black text-xl tracking-tighter select-none opacity-50 hover:opacity-100 transition-opacity"
             >
               {name}.
             </span>

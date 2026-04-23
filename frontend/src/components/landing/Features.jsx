@@ -44,7 +44,7 @@ const Features = () => {
           {features.map((f) => (
             <div
               key={f.title}
-              className="bg-stone-50/50 rounded-[48px] p-10 border border-stone-100 hover:bg-white hover:shadow-2xl hover:shadow-black/5 hover:-translate-y-2 transition-all duration-500 group"
+              className="bg-stone-200/50 rounded-[48px] p-10 border border-stone-100 hover:bg-white hover:shadow-2xl hover:shadow-black/5 hover:-translate-y-2 transition-all duration-500 group"
             >
               <div className="w-12 h-12 flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
                 {f.icon}

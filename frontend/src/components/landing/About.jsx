@@ -5,9 +5,9 @@ const About = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 md:gap-20 items-center">
           {/* Image Column */}
           <div className="relative group">
-            <div className="rounded-[64px] overflow-hidden aspect-[4/5] bg-stone-200 border border-stone-200/50">
+            <div className="rounded-[64px] overflow-hidden aspect-[4/4] bg-stone-200 border border-stone-200/50">
               <img
-                src="https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=800&q=80"
+                src="https://images.pexels.com/photos/4534653/pexels-photo-4534653.jpeg"
                 alt="Yoga practitioner in a peaceful studio setting"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[2s]"
                 loading="lazy"

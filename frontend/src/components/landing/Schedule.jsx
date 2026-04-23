@@ -11,24 +11,26 @@ const schedule = [
 
 const Schedule = () => {
   return (
-    <section id="schedule" className="py-24 md:py-32 px-8 md:px-20 bg-white">
-      <div className="max-w-[1200px] mx-auto text-center">
-        <div className="inline-flex items-center gap-2 rounded-full bg-white border border-stone-200 px-3 py-1 text-[10px] font-black text-stone-500 uppercase tracking-[0.2em] mb-12">
-          Schedule
+    <section id="schedule" className="py-24 md:py-40 px-6 md:px-20 bg-[#FBFBF9]">
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center mb-20 md:mb-32">
+          <div className="inline-flex items-center gap-2 rounded-full bg-white border border-stone-200 px-4 py-1.5 text-[10px] font-black text-stone-500 uppercase tracking-[0.3em] mb-8 shadow-sm">
+            Timetable
+          </div>
+          <h2 className="text-5xl md:text-7xl font-bold tracking-tighter text-ink leading-[0.9]">
+            Find your <br className="hidden md:block" /> inner balance
+          </h2>
         </div>
-        <h2 className="text-4xl md:text-5xl lg:text-7xl font-bold tracking-tight text-ink mb-16 leading-none">
-          Choose your session
-        </h2>
 
-        {/* Day Tabs */}
-        <div className="flex flex-wrap items-center justify-center gap-4 mb-16">
+        {/* Day Tabs - Scrollable on mobile */}
+        <div className="flex items-center md:justify-center gap-4 mb-16 overflow-x-auto pb-6 -mx-6 px-6 md:mx-0 md:px-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
             <button
               key={day}
-              className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${
+              className={`whitespace-nowrap px-8 py-4 rounded-full text-[10px] font-black uppercase tracking-[0.2em] transition-all border ${
                 day === 'Monday' 
-                  ? 'bg-[#F2EAE1] text-ink' 
-                  : 'text-stone-400 hover:text-ink'
+                  ? 'bg-ink text-white border-ink shadow-2xl shadow-ink/20' 
+                  : 'bg-white text-stone-400 border-stone-100 hover:border-stone-300 hover:text-ink'
               }`}
             >
               {day}
@@ -37,34 +39,63 @@ const Schedule = () => {
         </div>
 
         {/* Session List */}
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-6 md:gap-8">
           {schedule.map((item, idx) => (
             <div 
               key={idx}
-              className="bg-[#FBF6F1] rounded-[40px] p-4 md:px-10 md:py-6 flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-lg transition-all border border-transparent hover:border-stone-200 group"
+              className="group bg-white border border-stone-300 rounded-[48px] p-8 md:px-8 md:py-4 flex flex-col md:flex-row md:items-center gap-10 hover:border-ink transition-all duration-500 hover:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)]"
             >
-              {/* Time & Day */}
-              <div className="text-left w-full md:w-auto">
-                <div className="text-base md:text-lg font-bold text-ink whitespace-nowrap">{item.day} {item.time}</div>
-                <div className="text-sm font-medium text-stone-400">{item.duration}</div>
+              {/* Left Side: Time & Class */}
+              <div className="flex-1 flex flex-col md:flex-row md:items-center gap-8 md:gap-16">
+                {/* Time */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">Starts at</span>
+                  <div className="text-4xl font-bold text-ink tracking-tighter">{item.time}</div>
+                </div>
+
+                {/* Class Info */}
+                <div className="flex-1">
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 mb-3 flex items-center gap-3">
+                    {item.class}
+                    <span className="w-1 h-1 bg-stone-300 rounded-full"></span>
+                    <span className="text-ink">{item.duration}</span>
+                  </div>
+                  <h3 className="text-2xl md:text-3xl font-bold text-ink mb-4 group-hover:translate-x-2 transition-transform duration-500">
+                    {item.class}
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <span className="px-4 py-1.5 rounded-full bg-[#F2EAE1] text-[10px] font-bold uppercase text-[#3C3228] tracking-widest">
+                      {item.level}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              {/* Class & Level */}
-              <div className="text-left flex-1">
-                <div className="text-base md:text-lg font-bold text-ink">{item.class}</div>
-                <div className="text-sm font-medium text-stone-400">{item.level}</div>
-              </div>
+              {/* Right Side: Instructor & Action */}
+              <div className="flex flex-col md:flex-row md:items-center gap-8 md:gap-12 pt-8 md:pt-0 border-t md:border-t-0 border-stone-50">
+                {/* Instructor */}
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <img 
+                      src={item.avatar} 
+                      alt={item.instructor} 
+                      className="w-14 h-14 rounded-full object-cover ring-4 ring-stone-50 group-hover:ring-stone-100 transition-all duration-500" 
+                    />
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-stone-900 border-4 border-white rounded-full flex items-center justify-center">
+                      <div className="w-1 h-1 bg-white rounded-full"></div>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 mb-1">Guide</div>
+                    <div className="text-sm font-bold text-ink">{item.instructor}</div>
+                  </div>
+                </div>
 
-              {/* Instructor */}
-              <div className="flex items-center gap-3 w-full md:w-auto">
-                <img src={item.avatar} alt={item.instructor} className="w-12 h-12 rounded-full object-cover border-2 border-white" />
-                <span className="text-sm md:text-base font-bold text-ink">{item.instructor}</span>
+                {/* Action */}
+                <button className="w-full md:w-auto bg-ink text-white px-12 py-6 rounded-[32px] text-[10px] font-black uppercase tracking-[0.3em] hover:bg-stone-800 transition-all shadow-xl shadow-ink/10 group-hover:-translate-y-1 active:scale-95">
+                  Book Session
+                </button>
               </div>
-
-              {/* Book Action */}
-              <button className="w-full md:w-auto bg-[#3C3228] text-white px-8 py-3 rounded-2xl text-xs font-black uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-black/5">
-                Book
-              </button>
             </div>
           ))}
         </div>

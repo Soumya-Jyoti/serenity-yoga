@@ -85,7 +85,7 @@ const Admin = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={fetchSubmissions}
-              className={`p-4 border border-stone-200 bg-white rounded-xl transition-all hover:border-ink ${isRefreshing ? 'animate-spin' : ''}`}
+              className={`hidden md:flex p-4 border border-stone-200 bg-white rounded-xl transition-all hover:border-ink ${isRefreshing ? 'animate-spin' : ''}`}
               title="Refresh Data"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

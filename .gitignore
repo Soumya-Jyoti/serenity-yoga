@@ -40,3 +40,5 @@ Thumbs.db
 frontend/dist/
 frontend/dist-ssr/
 frontend/*.local
+
+.vercel
