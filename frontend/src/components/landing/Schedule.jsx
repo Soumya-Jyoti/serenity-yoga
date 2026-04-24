@@ -92,9 +92,12 @@ const Schedule = () => {
                 </div>
 
                 {/* Action */}
-                <button className="w-full md:w-auto bg-ink text-white px-12 py-6 rounded-[32px] text-[10px] font-black uppercase tracking-[0.3em] hover:bg-stone-800 transition-all shadow-xl shadow-ink/10 group-hover:-translate-y-1 active:scale-95">
+                <a 
+                  href="/login"
+                  className="w-full md:w-auto bg-ink text-white px-12 py-6 rounded-[32px] text-[10px] font-black uppercase text-center tracking-[0.3em] hover:bg-stone-800 transition-all shadow-xl shadow-ink/10 group-hover:-translate-y-1 active:scale-95"
+                >
                   Book Session
-                </button>
+                </a>
               </div>
             </div>
           ))}

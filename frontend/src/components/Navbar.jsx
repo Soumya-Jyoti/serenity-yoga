@@ -24,9 +24,10 @@ const Navbar = () => {
   }, [location]);
 
   const navLinks = [
-    { label: 'Classes', href: '/#classes' },
+    { label: 'About', href: '/#about' },
+    { label: 'Classes', href: '/#styles' },
     { label: 'Schedule', href: '/#schedule' },
-    { label: 'Studio', href: '/#studio' },
+    { label: 'Contact', href: '/#contact' },
   ];
 
   return (
@@ -42,15 +43,15 @@ const Navbar = () => {
     >
       <div className="flex items-center justify-between gap-8 md:gap-12">
         {/* ── Logo ── */}
-        <Link
-          to="/"
+        <a 
+          href="/#hero"
           className="flex items-center gap-2 md:gap-3 text-ink font-black tracking-tighter text-lg md:text-xl whitespace-nowrap group"
         >
           <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-ink text-white flex items-center justify-center group-hover:rotate-12 transition-transform duration-500">
             <span className="text-xs md:text-sm">🧘</span>
           </div>
           <span className="leading-none">Serenity.</span>
-        </Link>
+        </a>
 
         {/* ── Desktop Links ── */}
         <div className="hidden md:flex items-center gap-6 lg:gap-10">

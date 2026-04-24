@@ -2,7 +2,7 @@
 
 > *Where motion meets absolute stillness.*
 
-A modern full-stack web application for a premium yoga studio — built as a developer evaluation project. Features a beautifully crafted responsive landing page, JWT authentication, a personalized user dashboard, and a full admin panel for managing contact submissions.
+A modern full-stack web application for a premium yoga studio — built as a developer evaluation project. Features a beautifully crafted, mobile-first, and fully responsive design, JWT authentication, a personalized user dashboard, and a full admin panel for managing contact submissions.
 
 **🔗 Live Demo:** [https://serenity-yoga-studio-red.vercel.app/](https://serenity-yoga-studio-red.vercel.app/)
 
@@ -26,7 +26,7 @@ Under the hood, it demonstrates production-grade practices: JWT-based authentica
 
 | Landing Page | Dashboard | Admin Panel |
 |:---:|:---:|:---:|
-| ![Landing](screenshots/landing.png) | ![Dashboard](screenshots/dashboard.png) | ![Admin](screenshots/admin.png) |
+| ![Landing](frontend/src/assets/landing.png) | ![Dashboard](frontend/src/assets/Dashboard.png) | ![Admin](frontend/src/assets/Admin.png) |
 
 ---
 
@@ -73,7 +73,7 @@ Once logged in, walk through these features to see everything the app offers:
 ### Frontend
 - **[React 18](https://react.dev/)** — UI framework with hooks
 - **[Vite](https://vitejs.dev/)** — lightning-fast build tool and dev server
-- **[Tailwind CSS v3](https://tailwindcss.com/)** — utility-first styling
+- **[Tailwind CSS v3](https://tailwindcss.com/)** — utility-first styling used for a mobile-first, responsive UI pipeline
 - **[React Router v6](https://reactrouter.com/)** — client-side routing
 - **[Axios](https://axios-http.com/)** — HTTP client with interceptors
 - **[Onest Font](https://fonts.google.com/specimen/Onest)** — modern, warm typeface (300–800 weights)
@@ -103,7 +103,7 @@ Once logged in, walk through these features to see everything the app offers:
 
 - 🎨 **Premium, modern UI** inspired by [Remote by Modula](https://remotebymodula.framer.website/)
 - 🔐 **JWT-based authentication** with role-based access control (`user` / `admin`)
-- 📱 **Fully responsive** design — mobile, tablet, and desktop layouts
+- 📱 **Mobile-first, fully responsive** design — optimized for mobile, tablet, and desktop layouts
 - 🧘 **Beautiful landing page** with hero, features, testimonials, and contact form
 - 📊 **User dashboard** with stats, upcoming classes, and progress tracking
 - 👤 **Admin panel** with contact submission management and live search
@@ -346,6 +346,6 @@ This project is licensed under the **MIT License**.
 ---
 
 <p align="center">
-  <strong>Built with 🧘 by the Serenity team</strong><br>
+  <strong>Built with 🧘 by the Soumya Jyoti Sahoo</strong><br>
   <em>Breathe in. Code. Breathe out. Deploy.</em>
 </p>

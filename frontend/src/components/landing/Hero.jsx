@@ -51,7 +51,7 @@ const Hero = () => {
             {/* Clean CTAs */}
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-6 animate-fade-in-up animation-delay-300">
               <a
-                href="#classes"
+                href="login"
                 className="w-full sm:w-auto bg-ink text-white rounded-2xl px-10 py-5 text-sm font-black uppercase tracking-widest hover:scale-[1.02] transition-all active:scale-95 shadow-2xl shadow-ink/10"
               >
                 Join The Space
@@ -78,7 +78,7 @@ const Hero = () => {
                   key={idx}
                   src={img}
                   alt={`Serenity Yoga Studio View ${idx + 1}`}
-                  className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out group-hover:scale-105 ${
+                  className={`absolute inset-0 w-full h-full object-cover transition-all duration-[2s] ease-out transform-gpu group-hover:scale-110 ${
                     idx === currentHero ? 'opacity-100 z-10' : 'opacity-0 z-0'
                   }`}
                 />
