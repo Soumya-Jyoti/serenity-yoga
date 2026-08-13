@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 
 const Navbar = () => {
   const { isAuthenticated, isAdmin, logout, user } = useAuth();
@@ -19,9 +19,17 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  useEffect(() => {
+  // Close the mobile menu whenever the route changes.
+  //
+  // Adjusted during render rather than in an effect: React discards this
+  // render and immediately re-runs it with the new state, so the menu is
+  // never painted open on the new route. An effect would run after paint,
+  // producing a visible flash of the old menu plus a second render pass.
+  const [prevLocation, setPrevLocation] = useState(location);
+  if (location !== prevLocation) {
+    setPrevLocation(location);
     setMobileOpen(false);
-  }, [location]);
+  }
 
   const navLinks = [
     { label: 'About', href: '/#about' },

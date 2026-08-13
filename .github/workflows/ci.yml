@@ -1,0 +1,153 @@
+name: CI
+
+# ─────────────────────────────────────────────────────────────────────
+# 1. TRIGGERS
+#    - push to main  : validates what actually landed, and is the only
+#                      event allowed to reach the deploy step below.
+#    - pull_request  : validates the PR's *merge result* before it lands.
+#    Together these mean every commit on main has been checked twice.
+# ─────────────────────────────────────────────────────────────────────
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# If you push twice in quick succession, cancel the older run. Saves CI
+# minutes and stops a stale run from reporting after a newer one.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: this workflow only ever reads the repo. When you fill
+# in a real deploy target below, grant it only what that target needs.
+permissions:
+  contents: read
+
+jobs:
+  # Single job on purpose. Splitting only pays off when stages can run in
+  # parallel or need different runners — here lint and build share the
+  # same node_modules, so splitting would mean installing twice.
+  ci:
+    name: Lint, Build & Deploy
+    runs-on: ubuntu-latest
+
+    # All the real scripts live in frontend/, so every `run:` step below
+    # executes there. The root and backend/ workspaces have no lint,
+    # test, or build scripts to call.
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      # ── 2. CHECKOUT ────────────────────────────────────────────────
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      # ── 3. LANGUAGE SETUP + DEPENDENCY CACHE ───────────────────────
+      # node-version 22 matches the Node this repo is developed on.
+      # Nothing in the repo pins it (no "engines" field), so it is
+      # declared here. Consider adding "engines" to package.json so the
+      # local and CI versions can never silently drift apart.
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          # HEADS UP: this path is relative to the REPO ROOT, and is not
+          # affected by defaults.run.working-directory above. That
+          # setting only applies to `run:` steps, never to `uses:` steps.
+          cache-dependency-path: frontend/package-lock.json
+
+      # ── 4. INSTALL DEPENDENCIES (lockfile-exact) ───────────────────
+      # `npm ci` — not `npm install`. It installs the exact tree in
+      # package-lock.json, fails loudly if the lockfile and package.json
+      # disagree, and never rewrites the lockfile. `npm install` would
+      # happily upgrade a transitive dep and give you a build that does
+      # not match anyone's machine.
+      #
+      # Only frontend/ is installed. The root package.json has a
+      # postinstall that runs a loose `npm install` in backend/, and
+      # backend/package-lock.json is gitignored — so a root install
+      # cannot be made lockfile-exact. See the note at the bottom.
+      - name: Install dependencies
+        run: npm ci
+
+      # ── 5. CHECKS ──────────────────────────────────────────────────
+      # TODO(tests): this repo has no test script and no test runner.
+      # There is deliberately no `npm test` step here, because inventing
+      # one that always passes is worse than having none — it gives you
+      # a green check that proves nothing. When you add a runner
+      # (Vitest fits a Vite + React project), add its script to
+      # frontend/package.json and drop the step in right here:
+      #
+      #   - name: Run tests
+      #     run: npm run test -- --run
+      #
+      - name: Lint
+        run: npm run lint
+
+      # ── 6. BUILD ───────────────────────────────────────────────────
+      - name: Build production bundle
+        run: npm run build
+
+      # Keeps the exact bytes that were built and checked. Downloadable
+      # from the run's summary page, and it is what a real deploy step
+      # should ship — deploying a *rebuild* means shipping something CI
+      # never actually verified.
+      - name: Upload build output
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-dist
+          # Also repo-root-relative, same rule as cache-dependency-path.
+          path: frontend/dist
+          retention-days: 7
+          # Fail rather than silently upload an empty artifact.
+          if-no-files-found: error
+
+      # ── 7. DEPLOY (gated — not yet implemented) ────────────────────
+      # This step is a live placeholder so the gate is observable in the
+      # Actions UI: it RUNS on push to main, and is SKIPPED on every PR.
+      # Replace the `run:` body when you pick a target; keep the `if:`.
+      #
+      # The gate has two independent conditions, either of which alone
+      # would block PRs. Both are here because they fail differently:
+      #
+      #   github.event_name == 'push'   — excludes pull_request outright.
+      #   github.ref == 'refs/heads/main' — on a PR, github.ref is
+      #     'refs/pull/<N>/merge', never 'refs/heads/main'. This also
+      #     blocks pushes to any other branch, should you widen the
+      #     `on.push.branches` filter later.
+      #
+      # TODO: pick a deploy target and replace the echo below.
+      #
+      #   Vercel — this repo already has vercel.json and .vercel/
+      #   committed, so it is likely already wired to Vercel's own Git
+      #   integration. If so, delete this step rather than duplicating
+      #   the deploy. To drive it from here instead, add the
+      #   VERCEL_TOKEN / VERCEL_ORG_ID / VERCEL_PROJECT_ID repo secrets:
+      #     run: npx vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }}
+      #
+      #   Backend (nixpacks.toml suggests Railway) deploys separately —
+      #   it is a long-running server, not a build artifact, and is not
+      #   covered by this workflow at all.
+      #
+      # Whatever you choose: put credentials in repo secrets, never
+      # inline, and add the matching `permissions:` at the top.
+      - name: Deploy
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo "Gate passed — this only runs on push to main."
+          echo "  event: ${{ github.event_name }}"
+          echo "  ref:   ${{ github.ref }}"
+          echo "TODO: replace with a real deploy command."
+
+# ─────────────────────────────────────────────────────────────────────
+# KNOWN GAPS (deliberate, not oversights):
+#
+#  1. No test stage — the repo has no test script. See TODO(tests).
+#  2. backend/ is not covered. It has no lint, test, or build script,
+#     and backend/package-lock.json is gitignored, so it cannot be
+#     installed reproducibly. To bring it into CI: remove that line
+#     from .gitignore, commit the lockfile, then add a second job.
+# ─────────────────────────────────────────────────────────────────────
