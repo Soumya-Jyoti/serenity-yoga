@@ -167,19 +167,35 @@ jobs:
   # build. The fork guard exists because secrets are not passed to
   # workflows triggered from forked PRs, so GOOGLE_API_KEY would arrive
   # empty and the job would fail on something the contributor can't fix.
+  #
+  # The event_name clause is load-bearing, not belt-and-braces. This
+  # workflow also triggers on push to main, where github.event.pull_request
+  # does not exist — and GitHub's `==` is a LOOSE comparison that coerces
+  # both null and false to 0. So `null == false` is TRUE, and the fork
+  # guard alone would let this job run on every merge to main with no PR
+  # diff to review. Checking the event first short-circuits that.
   agent-review:
     needs: ci
-    if: github.event.pull_request.head.repo.fork == false
-    uses: sidsigma3/cinegraph/.github/workflows/agent-review.yml@v0.1.0
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false
+    uses: sidsigma3/cinegraph/.github/workflows/agent-review.yml@v0.1.1
     with:
       # This is a Vite + React repo — .jsx and .js, no TypeScript. *.yml
       # is included so changes to this workflow get reviewed too.
       paths: "*.js *.jsx *.yml"
       min-score: 80
       # Reports the score without failing the job. Deliberate: the gate
-      # observes before it enforces.
+      # observes before it enforces. Note this also suppresses v0.1.1's
+      # fail-closed partial-review exit — a dead lens prints
+      # `::error::FAIL - incomplete review coverage` and STILL exits 0.
+      # So read the log, not the checkmark, until this comes off.
       advisory: true
-      reviewer-ref: v0.1.0
+      # Free-tier pacing. The key's quota is 5 requests/minute, and a
+      # review costs 3 calls (one per lens) plus one per finding. This
+      # spaces them ~12s apart instead of firing them all at once, which
+      # is what produced the 429 retry storm on the v0.1.0 run.
+      # Raise to 10 if reviews feel slow AND no 429s appear.
+      rpm: 5
+      reviewer-ref: v0.1.1
     secrets:
       GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
 
