@@ -70,8 +70,15 @@ jobs:
       # postinstall that runs a loose `npm install` in backend/, and
       # backend/package-lock.json is gitignored — so a root install
       # cannot be made lockfile-exact. See the note at the bottom.
+      # The version echo is diagnostic: an `npm ci` "lock file out of
+      # sync" failure that no local npm could reproduce (Aug 2026,
+      # picomatch hoisting) was only debuggable by knowing the runner's
+      # exact toolchain. Two lines of log buy that visibility forever.
       - name: Install dependencies
-        run: npm ci
+        run: |
+          node --version
+          npm --version
+          npm ci
 
       # ── 5. CHECKS ──────────────────────────────────────────────────
       # TODO(tests): this repo has no test script and no test runner.
