@@ -149,6 +149,40 @@ jobs:
           echo "  ref:   ${{ github.ref }}"
           echo "TODO: replace with a real deploy command."
 
+  # ── AGENT REVIEW ─────────────────────────────────────────────────────
+  # Calls a reusable workflow from sidsigma3/cinegraph, which reviews the
+  # PR diff with an LLM and scores it out of 100. It reads the diff only —
+  # it is not a dependency scanner and never looks at package-lock.json.
+  #
+  # A reusable-workflow call has no `runs-on:` and no `steps:` of its own;
+  # the called workflow supplies both. `uses:` at job level is what makes
+  # this a call rather than a normal job.
+  #
+  # Both refs are pinned to v0.1.0 on purpose: `@v0.1.0` pins the workflow
+  # file, `reviewer-ref: v0.1.0` pins the reviewer code it checks out. Pin
+  # one and not the other and you get a frozen workflow driving code that
+  # still moves under it.
+  #
+  # `needs: ci` — don't spend an LLM call on a diff that doesn't lint or
+  # build. The fork guard exists because secrets are not passed to
+  # workflows triggered from forked PRs, so GOOGLE_API_KEY would arrive
+  # empty and the job would fail on something the contributor can't fix.
+  agent-review:
+    needs: ci
+    if: github.event.pull_request.head.repo.fork == false
+    uses: sidsigma3/cinegraph/.github/workflows/agent-review.yml@v0.1.0
+    with:
+      # This is a Vite + React repo — .jsx and .js, no TypeScript. *.yml
+      # is included so changes to this workflow get reviewed too.
+      paths: "*.js *.jsx *.yml"
+      min-score: 80
+      # Reports the score without failing the job. Deliberate: the gate
+      # observes before it enforces.
+      advisory: true
+      reviewer-ref: v0.1.0
+    secrets:
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+
 # ─────────────────────────────────────────────────────────────────────
 # KNOWN GAPS (deliberate, not oversights):
 #
