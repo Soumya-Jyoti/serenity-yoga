@@ -3,18 +3,12 @@
  * Persists JWT token in localStorage and auto-fetches user on mount.
  */
 
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useState, useEffect } from 'react';
 import API from '../api/axios';
 
 const AuthContext = createContext(null);
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+// The useAuth() accessor hook lives in ./useAuth.js — see the note there.
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);

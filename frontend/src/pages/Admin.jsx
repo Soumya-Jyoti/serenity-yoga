@@ -4,8 +4,8 @@
  * and utilitarian elegance. Zero shadows, zero gradients.
  */
 
-import { useState, useEffect, useMemo } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useAuth } from '../context/useAuth';
 import API from '../api/axios';
 
 const Admin = () => {
@@ -17,23 +17,52 @@ const Admin = () => {
   const [expandedId, setExpandedId] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Initial load. The fetch is inlined in the effect rather than calling
+  // the shared handler below, because every setState here lands *after*
+  // an await — nothing is set synchronously in the effect body. `loading`
+  // already starts true, so there was never anything to set up front.
+  //
+  // The `cancelled` flag drops the response if the admin navigates away
+  // mid-request, which previously would have set state on an unmounted
+  // component.
   useEffect(() => {
-    fetchSubmissions();
+    let cancelled = false;
+
+    const loadInitial = async () => {
+      try {
+        const res = await API.get('/api/contact');
+        if (!cancelled) setSubmissions(res.data.submissions || []);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err.response?.data?.message || 'Failed to load submissions.');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    loadInitial();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const fetchSubmissions = async () => {
+  // Manual refresh, wired to the header refresh button and the retry
+  // button on the error banner. This is an event handler rather than an
+  // effect, so setting state synchronously is fine — it is a direct
+  // response to a click, not a render side effect.
+  const fetchSubmissions = useCallback(async () => {
+    setIsRefreshing(true);
+    setError('');
     try {
-      setIsRefreshing(true);
-      if (!submissions.length) setLoading(true);
       const res = await API.get('/api/contact');
       setSubmissions(res.data.submissions || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load submissions.');
     } finally {
-      setLoading(false);
       setIsRefreshing(false);
     }
-  };
+  }, []);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return submissions;
@@ -132,6 +161,34 @@ const Admin = () => {
             </button>
           )}
         </div>
+
+        {/* ── Error Surface ── */}
+        {/* This state was being set on every failed fetch but never rendered,
+            so load failures were silent — the panel just showed "Workspace
+            clear." as though there were genuinely no inquiries. */}
+        {error && (
+          <div
+            role="alert"
+            className="mb-8 bg-white border border-clay/40 rounded-[32px] p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-2 h-2 rounded-full bg-clay shrink-0" />
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-clay mb-1">
+                  Connection Error
+                </div>
+                <p className="text-sm font-medium text-stone-600">{error}</p>
+              </div>
+            </div>
+            <button
+              onClick={fetchSubmissions}
+              disabled={isRefreshing}
+              className="shrink-0 text-[10px] font-black uppercase tracking-widest text-ink bg-stone-100 px-6 py-3 rounded-xl hover:bg-stone-200 disabled:opacity-40 transition-colors"
+            >
+              {isRefreshing ? 'Retrying…' : 'Retry'}
+            </button>
+          </div>
+        )}
 
         {/* ── Data Surface ── */}
         <div className="bg-white border border-stone-200 rounded-[32px] overflow-hidden flex flex-col">
