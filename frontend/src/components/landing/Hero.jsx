@@ -45,7 +45,7 @@ const Hero = () => {
             {/* Premium Subtext */}
             <p className="max-w-xl text-base md:text-xl text-stone-500 font-medium leading-relaxed mb-12 animate-fade-in-up animation-delay-200 mx-auto lg:mx-0">
               A sanctuary for yoga, meditation, and conscious living. <br className="hidden sm:block" /> 
-              Join 2,000+ practitioners in the heart of the city.
+              Join 3,000+ practitioners in the heart of the city.
             </p>
 
             {/* Clean CTAs */}
