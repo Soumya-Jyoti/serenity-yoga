@@ -242,20 +242,42 @@ jobs:
           chmod 644 ~/.ssh/known_hosts
 
           # Fail here, with a clear message, rather than letting rsync
-          # report a generic code 255 two steps later. Host keys and key
-          # fingerprints are public, so printing them leaks nothing and
-          # makes a mismatch diagnosable from the log alone.
-          echo "known_hosts entries:"
-          ssh-keygen -lf ~/.ssh/known_hosts || true
-          echo "deploy key:"
-          ssh-keygen -lf ~/.ssh/id_deploy || {
-            echo "::error::HOSTINGER_SSH_KEY is not a valid private key — re-paste it, whole file including the BEGIN/END lines"
+          # report a generic code 255 two steps later.
+          #
+          # Shape first. GitHub masks secret VALUES in logs, so a bad
+          # paste cannot be eyeballed — but line counts and whether the
+          # first line has the right header reveal nothing secret and
+          # identify the two mistakes that actually happen: pasting the
+          # wrong clipboard into a field, and a truncated copy.
+          echo "id_deploy:   $(wc -l < ~/.ssh/id_deploy) lines"
+          echo "known_hosts: $(wc -l < ~/.ssh/known_hosts) lines"
+
+          head -1 ~/.ssh/id_deploy | grep -q -- '-----BEGIN .*PRIVATE KEY-----' || {
+            echo "::error::HOSTINGER_SSH_KEY does not start with a PRIVATE KEY header. Most likely the wrong value was pasted into this secret."
             exit 1
           }
+          grep -qE '^[^ ]+ (ssh-|ecdsa-)' ~/.ssh/known_hosts || {
+            echo "::error::HOSTINGER_KNOWN_HOSTS does not look like ssh-keyscan output. Regenerate with: ssh-keyscan $SSH_HOST"
+            exit 1
+          }
+
+          # `-y` derives the public key from the private one. Unlike
+          # `ssh-keygen -l`, which wants a public key or a known_hosts
+          # file and rejects a private key on some builds, this is the
+          # portable way to prove a private key both parses and is
+          # unencrypted. Its fingerprint is public, so logging it is safe
+          # and lets you confirm the runner holds the key you think.
+          ssh-keygen -y -f ~/.ssh/id_deploy > ~/.ssh/id_deploy.pub 2>/dev/null || {
+            echo "::error::HOSTINGER_SSH_KEY did not parse as a private key — truncated, or it has a passphrase (it must not)."
+            exit 1
+          }
+          echo "deploy key fingerprint: $(ssh-keygen -lf ~/.ssh/id_deploy.pub)"
+
           ssh-keygen -F "$SSH_HOST" -f ~/.ssh/known_hosts >/dev/null || {
             echo "::error::HOSTINGER_KNOWN_HOSTS has no entry for '$SSH_HOST'. Regenerate with: ssh-keyscan $SSH_HOST"
             exit 1
           }
+          echo "known_hosts has an entry for the target host"
 
           # $HOME, not ~. rsync splits this string itself and execs ssh
           # directly, with no shell in between to expand a tilde. ssh does
