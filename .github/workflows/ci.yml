@@ -226,11 +226,36 @@ jobs:
           # Disabling the check is the usual shortcut and it trades away
           # the only thing protecting this key from a machine-in-the-
           # middle on first connect.
+          # `tr -d '\r'` is load-bearing, not tidying. These secrets get
+          # pasted into the GitHub UI, and anything routed through a
+          # Windows clipboard (clip.exe, Notepad, most editors) arrives
+          # CRLF. OpenSSH reads both files line-wise and treats a
+          # trailing \r as part of the key material, so every line
+          # silently fails to match: known_hosts gives "Host key
+          # verification failed" against a host you demonstrably just
+          # connected to by hand, and the private key fails to load at
+          # all. Neither error names the real cause.
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf '%s\n' "$KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
+
+          # Fail here, with a clear message, rather than letting rsync
+          # report a generic code 255 two steps later. Host keys and key
+          # fingerprints are public, so printing them leaks nothing and
+          # makes a mismatch diagnosable from the log alone.
+          echo "known_hosts entries:"
+          ssh-keygen -lf ~/.ssh/known_hosts || true
+          echo "deploy key:"
+          ssh-keygen -lf ~/.ssh/id_deploy || {
+            echo "::error::HOSTINGER_SSH_KEY is not a valid private key — re-paste it, whole file including the BEGIN/END lines"
+            exit 1
+          }
+          ssh-keygen -F "$SSH_HOST" -f ~/.ssh/known_hosts >/dev/null || {
+            echo "::error::HOSTINGER_KNOWN_HOSTS has no entry for '$SSH_HOST'. Regenerate with: ssh-keyscan $SSH_HOST"
+            exit 1
+          }
 
           # $HOME, not ~. rsync splits this string itself and execs ssh
           # directly, with no shell in between to expand a tilde. ssh does

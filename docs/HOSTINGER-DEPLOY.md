@@ -221,6 +221,15 @@ Settings → Secrets and variables → Actions.
 the JS bundle that ships to every visitor, so it is public by construction.
 Marking it secret would only mask it in the logs where you need to read it.
 
+> **Pasting the two multi-line secrets from Windows.** `clip.exe` converts LF
+> to CRLF (verified: a 3-line file goes in with 0 CR bytes and comes out of the
+> clipboard with 3). OpenSSH reads both files line-wise and treats the trailing
+> `\r` as key material, so `known_hosts` matches nothing —
+> `Host key verification failed` against a host you just connected to by hand —
+> and the private key fails to load. The workflow now runs both through
+> `tr -d '\r'`, so this is handled; the deploy step also prints both
+> fingerprints, which is the fastest way to spot a mangled paste.
+
 ## 6. Update the backend's CORS allowlist
 
 `backend/server.js` reads allowed origins from `CORS_ORIGINS`. On the backend's
@@ -256,7 +265,7 @@ everything except the credentials.
 
 | Symptom | Cause |
 |---|---|
-| `Host key verification failed` | `HOSTINGER_KNOWN_HOSTS` missing, truncated, or the VPS was rebuilt and its host key changed. Re-run `ssh-keyscan`. |
+| `Host key verification failed` | `HOSTINGER_KNOWN_HOSTS` missing, truncated, or the VPS was rebuilt and its host key changed. Re-run `ssh-keyscan`. Was also caused by CRLF line endings before the workflow started stripping them — see the note in step 5. |
 | `Permission denied (publickey)` | Public half not in `~deploy/.ssh/authorized_keys`, or its perms are wrong: `chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys`. |
 | `rsync: failed to set times ... Operation not permitted` | `/var/www/serenity` not owned by `deploy`. Re-run the `chown` in step 1. |
 | Site 200s but shows 403 for assets | nginx (`www-data`) can't traverse the directory. `chmod 755 /var/www/serenity`. |
