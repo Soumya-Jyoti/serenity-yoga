@@ -13,12 +13,20 @@ const contactRoutes = require('./routes/contact');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Comma-separated so the frontend's domain can change without a code
+// change — it has moved hosts once already. Falls back to the previous
+// hardcoded list, so an unset variable cannot lock out the live site.
+const allowedOrigins = (
+  process.env.CORS_ORIGINS ||
+  'https://serenity-yoga-studio-red.vercel.app,http://localhost:5173'
+)
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 // Middleware
 app.use(cors({
-  origin: [
-    'https://serenity-yoga-studio-red.vercel.app',
-    'http://localhost:5173'
-  ],
+  origin: allowedOrigins,
   credentials: true
 }));
 app.use(express.json());

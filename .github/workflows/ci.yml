@@ -15,12 +15,18 @@ on:
 
 # If you push twice in quick succession, cancel the older run. Saves CI
 # minutes and stops a stale run from reporting after a newer one.
+#
+# Except on main. The deploy step below rsyncs into the live web root, so
+# cancelling a main run can kill it mid-transfer and leave the site as a
+# half-written mix of two builds — a broken page that no later run knows
+# to repair. On PRs there is nothing to corrupt, so cancel freely there.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
-# Least privilege: this workflow only ever reads the repo. When you fill
-# in a real deploy target below, grant it only what that target needs.
+# Least privilege: this workflow only reads the repo. The deploy target is
+# a VPS reached over SSH with its own key, so GitHub needs to grant
+# nothing extra for it — the credential is in secrets, not in this token.
 permissions:
   contents: read
 
@@ -31,6 +37,24 @@ jobs:
   ci:
     name: Lint, Build & Deploy
     runs-on: ubuntu-latest
+
+    # frontend/src/api/axios.js reads VITE_API_URL at BUILD time, so Vite
+    # bakes it into the bundle — it is not read at runtime and cannot be
+    # changed on the server afterwards. Vercel used to inject this from
+    # its own env store; a VPS serving static files has no such store, so
+    # it has to be supplied here or the built site calls the empty string
+    # for an API base and every request 404s against the static host.
+    #
+    # A `vars` entry, not a `secrets` entry, deliberately: this value is
+    # shipped inside the public JS bundle, so treating it as a secret
+    # would be a lie that also masks it in the logs you need to debug it.
+    # Set it under Settings → Secrets and variables → Actions → Variables.
+    #
+    # Job-level so BOTH the build check and the deployed build see the
+    # identical value. That is what lets the deploy ship the artifact
+    # verified below instead of rebuilding it.
+    env:
+      VITE_API_URL: ${{ vars.VITE_API_URL }}
 
     # All the real scripts live in frontend/, so every `run:` step below
     # executes there. The root and backend/ workspaces have no lint,
@@ -95,13 +119,23 @@ jobs:
         run: npm run lint
 
       # ── 6. BUILD ───────────────────────────────────────────────────
+      # The echo is diagnostic, in the same spirit as the npm version
+      # above. An unset VITE_API_URL does not fail the build — Vite just
+      # substitutes the empty string — so the only way to catch a missing
+      # or misnamed repo variable is to print what the build actually
+      # saw. A site that builds green and then cannot reach its API is
+      # otherwise a genuinely confusing thing to debug from the outside.
       - name: Build production bundle
-        run: npm run build
+        run: |
+          echo "VITE_API_URL=${VITE_API_URL:-<empty>}"
+          npm run build
 
       # Keeps the exact bytes that were built and checked. Downloadable
-      # from the run's summary page, and it is what a real deploy step
-      # should ship — deploying a *rebuild* means shipping something CI
-      # never actually verified.
+      # from the run's summary page, and — since the deploy step below
+      # uploads this same dist/ rather than rebuilding — it is a copy of
+      # precisely what went live, which makes it worth keeping when a
+      # deploy misbehaves and you want to diff it against the last good
+      # one. Deploying a *rebuild* would ship something never verified.
       - name: Upload build output
         uses: actions/upload-artifact@v7
         with:
@@ -112,13 +146,10 @@ jobs:
           # Fail rather than silently upload an empty artifact.
           if-no-files-found: error
 
-      # ── 7. DEPLOY (gated — not yet implemented) ────────────────────
-      # This step is a live placeholder so the gate is observable in the
-      # Actions UI: it RUNS on push to main, and is SKIPPED on every PR.
-      # Replace the `run:` body when you pick a target; keep the `if:`.
-      #
-      # The gate has two independent conditions, either of which alone
-      # would block PRs. Both are here because they fail differently:
+      # ── 7. DEPLOY TO HOSTINGER VPS (gated) ─────────────────────────
+      # Runs on push to main, SKIPPED on every PR. The gate has two
+      # independent conditions, either of which alone would block PRs.
+      # Both are here because they fail differently:
       #
       #   github.event_name == 'push'   — excludes pull_request outright.
       #   github.ref == 'refs/heads/main' — on a PR, github.ref is
@@ -126,28 +157,149 @@ jobs:
       #     blocks pushes to any other branch, should you widen the
       #     `on.push.branches` filter later.
       #
-      # TODO: pick a deploy target and replace the echo below.
+      # This uploads the dist/ built in step 6 — the exact bytes that
+      # linted and built and were archived above. No rebuild, so there is
+      # no second build to diverge from the one that was checked.
       #
-      #   Vercel — this repo already has vercel.json and .vercel/
-      #   committed, so it is likely already wired to Vercel's own Git
-      #   integration. If so, delete this step rather than duplicating
-      #   the deploy. To drive it from here instead, add the
-      #   VERCEL_TOKEN / VERCEL_ORG_ID / VERCEL_PROJECT_ID repo secrets:
-      #     run: npx vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }}
+      # Server-side setup (nginx root, SPA fallback, the deploy user and
+      # its key) is one-time work that does not belong in a workflow.
+      # It is written up in docs/HOSTINGER-DEPLOY.md — read that first;
+      # this step assumes it has been done.
       #
-      #   Backend (nixpacks.toml suggests Railway) deploys separately —
-      #   it is a long-running server, not a build artifact, and is not
-      #   covered by this workflow at all.
+      # Required — Settings → Secrets and variables → Actions:
+      #   Secrets:   HOSTINGER_SSH_KEY      private key, no passphrase
+      #              HOSTINGER_KNOWN_HOSTS  ssh-keyscan output for the VPS
+      #              HOSTINGER_HOST         IP or hostname
+      #              HOSTINGER_USER         the deploy user
+      #   Variables: HOSTINGER_PATH         web root, e.g. /var/www/serenity
+      #              HOSTINGER_PORT         optional, defaults to 22
+      #              HOSTINGER_SITE_URL     optional, enables the smoke check
       #
-      # Whatever you choose: put credentials in repo secrets, never
-      # inline, and add the matching `permissions:` at the top.
-      - name: Deploy
+      # No third-party SSH action is used. Handing a private key to a
+      # marketplace action means trusting whatever that action ships at
+      # the tag you pinned; the twelve lines below do the same job with
+      # nothing to trust but OpenSSH.
+      - name: Deploy to Hostinger VPS
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          SSH_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.HOSTINGER_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.HOSTINGER_HOST }}
+          SSH_USER: ${{ secrets.HOSTINGER_USER }}
+          SSH_PORT: ${{ vars.HOSTINGER_PORT || '22' }}
+          DEPLOY_PATH: ${{ vars.HOSTINGER_PATH }}
+          SITE_URL: ${{ vars.HOSTINGER_SITE_URL }}
         run: |
-          echo "Gate passed — this only runs on push to main."
-          echo "  event: ${{ github.event_name }}"
-          echo "  ref:   ${{ github.ref }}"
-          echo "TODO: replace with a real deploy command."
+          set -euo pipefail
+
+          # Fail with a readable message rather than a confusing ssh or
+          # rsync error forty lines later.
+          : "${SSH_KEY:?missing repo secret HOSTINGER_SSH_KEY}"
+          : "${KNOWN_HOSTS:?missing repo secret HOSTINGER_KNOWN_HOSTS — generate with: ssh-keyscan -p <port> <host>}"
+          : "${SSH_HOST:?missing repo secret HOSTINGER_HOST}"
+          : "${SSH_USER:?missing repo secret HOSTINGER_USER}"
+          : "${DEPLOY_PATH:?missing repo variable HOSTINGER_PATH}"
+
+          # rsync runs with --delete-after: anything in the target that is
+          # not in dist/ is removed. Pointed at a system directory that
+          # would be a very bad afternoon, so refuse the obvious ones
+          # outright. This is cheap; recovering a wiped /var is not.
+          case "$DEPLOY_PATH" in
+            /*) ;;
+            *) echo "::error::HOSTINGER_PATH must be an absolute path, got '$DEPLOY_PATH'"; exit 1 ;;
+          esac
+          # Strip the trailing slash AFTER the absolute check, so that a
+          # bare "/" is still reported as "/" and not as an empty string.
+          [ "$DEPLOY_PATH" = "/" ] || DEPLOY_PATH="${DEPLOY_PATH%/}"
+          case "$DEPLOY_PATH" in
+            /|/bin|/boot|/dev|/etc|/home|/lib|/opt|/proc|/root|/sbin|/srv|/sys|/usr|/var|/var/www)
+              echo "::error::refusing to rsync --delete into '$DEPLOY_PATH' — use a directory owned by this site alone"
+              exit 1 ;;
+          esac
+
+          # Step 6 ran, so dist/ should exist. If it somehow does not,
+          # stop here: rsyncing an empty source with --delete would
+          # faithfully delete the entire live site.
+          test -f dist/index.html || { echo "::error::dist/index.html missing — nothing safe to deploy"; exit 1; }
+
+          # Host key pinned from a secret, NOT StrictHostKeyChecking=no.
+          # Disabling the check is the usual shortcut and it trades away
+          # the only thing protecting this key from a machine-in-the-
+          # middle on first connect.
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+          # $HOME, not ~. rsync splits this string itself and execs ssh
+          # directly, with no shell in between to expand a tilde. ssh does
+          # happen to expand ~ in -i itself, but relying on that is a
+          # footgun for the next person who copies this line somewhere
+          # that does not. An absolute path has no such question.
+          #
+          # IdentitiesOnly=yes stops ssh offering any other key the agent
+          # happens to hold, which is what causes "too many authentication
+          # failures" on servers with a low MaxAuthTries. BatchMode=yes
+          # makes it fail instead of hanging on a password prompt no one
+          # is there to answer.
+          SSH_CMD="ssh -i $HOME/.ssh/id_deploy -p $SSH_PORT -o IdentitiesOnly=yes -o BatchMode=yes"
+
+          echo "Deploying $GITHUB_SHA to $SSH_USER@$SSH_HOST:$DEPLOY_PATH"
+
+          # --checksum, not the default size+mtime. Every CI run is a
+          # fresh checkout, so every file has a new mtime and rsync would
+          # re-upload the whole site each deploy. Vite's asset names are
+          # content-hashed, so comparing contents means only genuinely
+          # changed files move.
+          #
+          # --delete-after, not plain --delete: removals happen once all
+          # new files are in place, so there is no instant where the new
+          # index.html is live but the assets it references are gone.
+          #
+          # The trailing slash on dist/ is load-bearing. Without it rsync
+          # copies the directory itself and you get $DEPLOY_PATH/dist.
+          rsync -az --checksum --delete-after \
+            --human-readable --stats \
+            -e "$SSH_CMD" \
+            dist/ "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/"
+
+          echo "### Deployed to Hostinger" >> "$GITHUB_STEP_SUMMARY"
+          echo "- commit: \`$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- target: \`$SSH_USER@$SSH_HOST:$DEPLOY_PATH\`" >> "$GITHUB_STEP_SUMMARY"
+
+      # A deploy that reports success without anyone loading the page is
+      # only a claim that rsync exited 0. This makes it a fact. Optional:
+      # skipped entirely if HOSTINGER_SITE_URL is not set, so the deploy
+      # above works before DNS or TLS is finished.
+      #
+      # --retry rides out nginx reloads and slow TLS handshakes; -f makes
+      # any 4xx/5xx a non-zero exit, so a 502 fails the run instead of
+      # being logged and ignored.
+      - name: Smoke check the deployed site
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.HOSTINGER_SITE_URL != ''
+        env:
+          # Through env, not interpolated into the script body. A `${{ }}`
+          # expanded inline is pasted in as raw text before bash ever sees
+          # it, so a variable containing a quote changes what this script
+          # *is*. Only repo admins can set variables, so this is hygiene
+          # rather than a hole — but it costs one line to not have it.
+          SITE_URL: ${{ vars.HOSTINGER_SITE_URL }}
+        run: |
+          set -euo pipefail
+          url="$SITE_URL"
+          echo "GET $url"
+          curl -fsS --retry 5 --retry-delay 3 --retry-all-errors -o /dev/null -w 'HTTP %{http_code} in %{time_total}s\n' "$url"
+
+          # The SPA fallback is the one thing that silently did not come
+          # across from Vercel: frontend/vercel.json rewrote every path to
+          # index.html, and nginx does not read that file. If this 404s,
+          # the try_files line in docs/HOSTINGER-DEPLOY.md is missing —
+          # the home page will look perfect and every refresh on a
+          # sub-route will break.
+          deep="${url%/}/login"
+          echo "GET $deep (SPA fallback)"
+          curl -fsS --retry 3 --retry-delay 2 -o /dev/null -w 'HTTP %{http_code}\n' "$deep"
 
   # ── AGENT REVIEW ─────────────────────────────────────────────────────
   # Calls a reusable workflow from sidsigma3/cinegraph, which reviews the
@@ -203,8 +355,23 @@ jobs:
 # KNOWN GAPS (deliberate, not oversights):
 #
 #  1. No test stage — the repo has no test script. See TODO(tests).
-#  2. backend/ is not covered. It has no lint, test, or build script,
-#     and backend/package-lock.json is gitignored, so it cannot be
-#     installed reproducibly. To bring it into CI: remove that line
-#     from .gitignore, commit the lockfile, then add a second job.
+#  2. backend/ is not covered, and is not deployed by this workflow. It
+#     stays on its current host (nixpacks.toml suggests Railway) — it is
+#     a long-running server, not a build artifact. It also has no lint,
+#     test, or build script, and backend/package-lock.json is gitignored,
+#     so it cannot even be installed reproducibly. To bring it into CI:
+#     remove that line from .gitignore, commit the lockfile, add a job.
+#  3. VERCEL IS STILL DEPLOYING, until you turn it off. Moving to
+#     Hostinger does not disconnect Vercel's Git integration — it will
+#     keep building every push to main and serving the old domain, so
+#     two live copies of the site drift apart. Leave it until the step
+#     above has gone green once and the Hostinger site is verified, then
+#     disable it in the Vercel dashboard under Settings → Git.
+#     vercel.json and frontend/vercel.json can be deleted at that point;
+#     the SPA rewrite they describe now lives in the nginx config.
+#  4. No rollback. A bad deploy is fixed by pushing a revert and waiting
+#     for this workflow, roughly a two-minute window. If that becomes
+#     too slow, the usual next step is to rsync into a timestamped
+#     releases/ directory and flip a `current` symlink, which makes
+#     rollback an instant symlink change instead of a rebuild.
 # ─────────────────────────────────────────────────────────────────────
