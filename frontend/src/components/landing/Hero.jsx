@@ -33,7 +33,7 @@ const Hero = () => {
             {/* Minimal Badge */}
             <div className="inline-flex items-center gap-2 rounded-full bg-ink/5 border border-ink/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-ink mb-10 animate-fade-in-up">
               <span className="w-1.5 h-1.5 rounded-full bg-sage animate-pulse" />
-              <span>Spring Enrollment Open</span>
+              <span>Spring Enrollment Open now</span>
             </div>
 
             {/* High-Impact Headline */}
