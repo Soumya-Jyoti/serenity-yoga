@@ -30,6 +30,9 @@ const Testimonials = () => {
           <h2 className="text-4xl md:text-5xl lg:text-7xl font-bold tracking-tight text-ink">
             What our yogis say.
           </h2>
+          <p className="mt-6 max-w-2xl mx-auto text-base md:text-lg text-stone-500 font-medium leading-relaxed">
+            Real stories from the people who practice with us every week.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
